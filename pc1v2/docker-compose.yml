@@ -1,0 +1,75 @@
+services:
+  mongo1:
+    image: mongo:latest
+    container_name: pisid-mongo1-v2
+    command: mongod --replSet rs0v2 --bind_ip_all --port 27017
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongo1-data-v2:/data/db
+    networks:
+      - pisid-network
+
+  mongo2:
+    image: mongo:latest
+    container_name: pisid-mongo2-v2
+    command: mongod --replSet rs0v2 --bind_ip_all --port 27017
+    ports:
+      - "27021:27017"
+    volumes:
+      - mongo2-data-v2:/data/db
+    networks:
+      - pisid-network
+
+  mongo3:
+    image: mongo:latest
+    container_name: pisid-mongo3-v2
+    command: mongod --replSet rs0v2 --bind_ip_all --port 27017
+    ports:
+      - "27022:27017"
+    volumes:
+      - mongo3-data-v2:/data/db
+    networks:
+      - pisid-network
+
+  mongo-init:
+    image: mongo:latest
+    container_name: pisid-mongo-init-v2
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - pisid-network
+    restart: "no"
+    entrypoint: >
+      bash -c "
+        sleep 10 &&
+        mongosh --host pisid-mongo1-v2:27017 --eval '
+          rs.initiate({
+            _id: \"rs0v2\",
+            members: [
+              { _id: 0, host: \"pisid-mongo1-v2:27017\", priority: 2 },
+              { _id: 1, host: \"pisid-mongo2-v2:27017\", priority: 1 },
+              { _id: 2, host: \"pisid-mongo3-v2:27017\", priority: 1 }
+            ]
+          })
+        ' &&
+        sleep 5 &&
+        mongosh --host pisid-mongo1-v2:27017 --eval '
+          use pisid;
+          db.createCollection(\"movements\");
+          db.createCollection(\"temperature\");
+          db.createCollection(\"sound\");
+          db.createCollection(\"dirty_data\");
+        '
+      "
+
+volumes:
+  mongo1-data-v2:
+  mongo2-data-v2:
+  mongo3-data-v2:
+
+networks:
+  pisid-network:
+    external: true

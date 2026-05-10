@@ -1,0 +1,49 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: pisid-mysql-v2
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: pisid1234
+      MYSQL_DATABASE: pisid
+    volumes:
+      - mysql-data-v2:/var/lib/mysql
+      - ./mysql_files:/var/lib/mysql-files/
+    ports:
+      - "3307:3306"
+    networks:
+      - pisid-network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: pisid-phpmyadmin-v2
+    restart: unless-stopped
+    ports:
+      - "9002:80"
+    environment:
+      PMA_ARBITRARY: 1
+    depends_on:
+      - mysql
+    networks:
+      - pisid-network
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile.php
+    container_name: pisid-php-v2
+    volumes:
+      - ./src:/var/www/html
+    ports:
+      - "9003:80"
+    depends_on:
+      - mysql
+    networks:
+      - pisid-network
+
+volumes:
+  mysql-data-v2:
+
+networks:
+  pisid-network:
+    external: true

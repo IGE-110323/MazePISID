@@ -1,0 +1,85 @@
+{
+  "Type": "start_pc1",
+  "IDCommand": 64,
+  "IDSimulacao": 80,
+  "PlayerNumber": 35,
+  "Broker": "broker.emqx.io",
+  "PortBroker": 1883,
+  "TopicMovement": "pisid_mazemov_",
+  "TopicSound": "pisid_mazesound_",
+  "TopicTemperature": "pisid_mazetemp_",
+  "TopicAction": "pisid_mazeact",
+  "ErrorOutlierTemp": 60,
+  "ErrorOutlierSound": 60,
+  "TimeMarsamiLive": 99,
+  "ParamAcLimit": 30,
+  "NormalTemperature": 15,
+  "TempHighToleration": 10,
+  "TempLowToleration": 10,
+  "NormalNoise": 10,
+  "NoiseVarToleration": 17,
+  "NumberMarsamis": 30,
+  "NumberRooms": 10,
+  "Corridors": [
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      3,
+      2
+    ],
+    [
+      4,
+      5
+    ],
+    [
+      5,
+      3
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      5,
+      7
+    ],
+    [
+      6,
+      8
+    ],
+    [
+      7,
+      5
+    ],
+    [
+      8,
+      9
+    ],
+    [
+      8,
+      10
+    ],
+    [
+      9,
+      7
+    ],
+    [
+      10,
+      1
+    ]
+  ]
+}

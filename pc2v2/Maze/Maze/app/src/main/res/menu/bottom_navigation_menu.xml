@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_messages"
+        android:icon="@android:drawable/ic_dialog_email"
+        android:title="Messages" />
+    <item
+        android:id="@+id/nav_room"
+        android:icon="@android:drawable/ic_dialog_map"
+        android:title="Room" />
+    <item
+        android:id="@+id/nav_sound"
+        android:icon="@android:drawable/ic_lock_silent_mode_off"
+        android:title="Sound" />
+    <item
+        android:id="@+id/nav_temperature"
+        android:icon="@android:drawable/ic_menu_today"
+        android:title="Temperature" />
+</menu>

@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PISID — Grupo 35 — Labirinto dos Marsamis</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+        h1 { color: #4fc3f7; margin-bottom: 20px; }
+        h2 { color: #90caf9; margin: 20px 0 10px; font-size: 16px; }
+        .card { background: #16213e; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; color: #aaa; }
+        input, select { background: #0f3460; border: 1px solid #4fc3f7; color: #eee; padding: 8px 12px; border-radius: 4px; font-size: 14px; }
+        input { flex: 1; min-width: 150px; }
+        input[type="number"] { min-width: 100px; }
+        select { min-width: 150px; }
+        button { background: #4fc3f7; color: #1a1a2e; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        button:hover { background: #81d4fa; }
+        button.danger  { background: #ef5350; color: #fff; }
+        button.success { background: #66bb6a; color: #fff; }
+        button.warning { background: #ffa726; color: #1a1a2e; }
+        button.logout  { background: #555; color: #eee; font-size: 12px; padding: 5px 12px; }
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+        .service { background: #0f3460; border-radius: 6px; padding: 12px; text-align: center; }
+        .service .name { font-weight: bold; font-size: 13px; margin-bottom: 4px; }
+        .service .location { font-size: 11px; color: #aaa; margin-bottom: 6px; }
+        .service .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .online  { background: #1b5e20; color: #a5d6a7; }
+        .offline { background: #b71c1c; color: #ef9a9a; }
+        .unknown { background: #424242; color: #bdbdbd; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #0f3460; color: #4fc3f7; padding: 8px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #0f3460; }
+        .status-0 { color: #ffd54f; }
+        .status-1 { color: #66bb6a; }
+        .status-3 { color: #ef5350; }
+        .msg { padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 13px; }
+        .msg.ok  { background: #1b5e20; color: #a5d6a7; }
+        .msg.err { background: #b71c1c; color: #ef9a9a; }
+        .active-sim { background: #0d47a1; border-radius: 6px; padding: 12px; margin-bottom: 10px; font-size: 13px; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #16213e; border: 1px solid #4fc3f7; border-radius: 8px; padding: 24px; width: 500px; max-width: 90vw; max-height: 90vh; overflow-y: auto; }
+        .modal h3 { color: #4fc3f7; margin-bottom: 16px; }
+        .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        .hint { font-size: 11px; color: #888; margin-top: 2px; }
+        .user-badge { display: inline-block; background: #0d47a1; border-radius: 4px; padding: 4px 10px; font-size: 12px; margin-left: 10px; vertical-align: middle; }
+        .section-hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<h1>🎮 Labirinto dos Marsamis — Grupo 35</h1>
+
+<!-- LOGIN -->
+<div class="card">
+    <h2>Ligação</h2>
+    <div class="form-row">
+        <input type="text"     id="inEmail"    placeholder="Email"          value="francisco@pisid.pt">
+        <input type="password" id="inPassword" placeholder="Password"       value="">
+        <input type="text"     id="inHost"     placeholder="Host:Porto PHP" value="127.0.0.1:9003">
+        <input type="text"     id="inDatabase" placeholder="Base de dados"  value="pisid">
+        <button onclick="login()">Ligar</button>
+        <button class="logout" onclick="logout()" id="btnLogout" style="display:none">⏻ Logout</button>
+    </div>
+    <div id="loginMsg"></div>
+</div>
+
+<!-- SAÚDE DOS SERVIÇOS -->
+<div class="card section-hidden" id="sectionHealth">
+    <h2>
+        Estado dos Serviços
+        <button onclick="loadAll()" style="font-size:11px;padding:4px 10px;margin-left:10px">Atualizar</button>
+    </h2>
+    <div id="healthGrid" class="status-grid"></div>
+    <div id="activeSim"></div>
+</div>
+
+<!-- NOVA SIMULAÇÃO -->
+<div class="card section-hidden" id="sectionSim">
+    <h2>Nova Simulação</h2>
+    <div class="form-row">
+        <input type="text" id="inDescricao" placeholder="Descrição da simulação (opcional)">
+        <button onclick="criarSimulacao()">+ Criar</button>
+        <button class="success" onclick="criarEIniciar()">▶ Criar e Iniciar</button>
+    </div>
+    <div id="createMsg"></div>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="card section-hidden" id="sectionHistory">
+    <h2>Histórico de Simulações</h2>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Descrição</th><th>Estado</th><th>Início</th><th>Fim</th><th>Score</th><th>Ação</th></tr>
+        </thead>
+        <tbody id="simTable"></tbody>
+    </table>
+</div>
+
+<!-- EQUIPAS -->
+<div class="card section-hidden" id="sectionTeam">
+    <h2>Gestão de Equipas</h2>
+    <div class="form-grid" style="max-width:600px">
+        <div class="form-group">
+            <label>Nome da Equipa</label>
+            <input type="text" id="teamNome" placeholder="Ex: Grupo 35">
+        </div>
+        <div class="form-group">
+            <label>Número de Player</label>
+            <input type="number" id="teamPlayer" placeholder="Ex: 35">
+        </div>
+        <div class="form-group">
+            <label>Password da Equipa</label>
+            <input type="password" id="teamPassword" placeholder="Password">
+        </div>
+    </div>
+    <div class="form-row">
+        <button class="success" onclick="criarEquipa()">+ Criar Equipa</button>
+    </div>
+    <div id="teamMsg"></div>
+
+    <h2 style="margin-top:16px">Equipas Existentes</h2>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Nome</th><th>Player Number</th></tr>
+        </thead>
+        <tbody id="teamTable"></tbody>
+    </table>
+</div>
+
+<!-- UTILIZADORES -->
+<div class="card section-hidden" id="sectionUsers">
+    <h2>Gestão de Utilizadores</h2>
+
+    <div class="form-grid" style="max-width:700px">
+        <div class="form-group">
+            <label>Nome</label>
+            <input type="text" id="userNome" placeholder="Nome completo">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="userEmail" placeholder="email@pisid.pt">
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="userPassword" placeholder="Password">
+        </div>
+        <div class="form-group">
+            <label>Tipo</label>
+            <select id="userTipo">
+                <option value="USR">USR — Utilizador</option>
+                <option value="ADM">ADM — Administrador</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Equipa</label>
+            <select id="userTeam">
+                <option value="">— Sem equipa —</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Telemóvel</label>
+            <input type="text" id="userTelemovel" placeholder="Opcional">
+        </div>
+        <div class="form-group">
+            <label>Data de Nascimento</label>
+            <input type="date" id="userDataNasc">
+        </div>
+    </div>
+    <div class="form-row">
+        <button class="success" onclick="criarUtilizador()">+ Criar Utilizador</button>
+    </div>
+    <div id="userMsg"></div>
+
+    <h2 style="margin-top:16px">Utilizadores Existentes</h2>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Nome</th><th>Email</th><th>Tipo</th><th>Equipa</th><th>Ações</th></tr>
+        </thead>
+        <tbody id="userTable"></tbody>
+    </table>
+</div>
+
+<!-- MODAL EDIÇÃO SIMULAÇÃO -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <h3>✏ Editar Simulação <span id="editSimId"></span></h3>
+        <input type="hidden" id="editId">
+        <div class="form-group" style="margin-bottom:10px">
+            <label>Descrição</label>
+            <input type="text" id="editDescricao" placeholder="Descrição">
+        </div>
+        <p style="font-size:12px;color:#aaa;margin-bottom:10px">Parâmetros opcionais — se não preenchidos usam os valores da configuração base.</p>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>ParamAcLimit</label>
+                <input type="number" id="editParamAcLimit" placeholder="Default: 30">
+                <span class="hint">Leituras acima do limite antes de terminar</span>
+            </div>
+            <div class="form-group">
+                <label>TimeMarsamiLive (s)</label>
+                <input type="number" id="editTimeMarsamiLive" placeholder="Default: servidor">
+                <span class="hint">Tempo de vida dos marsamis em segundos</span>
+            </div>
+            <div class="form-group">
+                <label>ErrorOutlierTemp</label>
+                <input type="number" id="editErrorOutlierTemp" placeholder="Default: 60">
+                <span class="hint">Limiar de outlier de temperatura</span>
+            </div>
+            <div class="form-group">
+                <label>ErrorOutlierSound</label>
+                <input type="number" id="editErrorOutlierSound" placeholder="Default: 60">
+                <span class="hint">Limiar de outlier de ruído</span>
+            </div>
+        </div>
+        <div id="editMsg"></div>
+        <div class="modal-footer">
+            <button onclick="fecharModal('editModal')" style="background:#555;color:#eee">Cancelar</button>
+            <button class="warning" onclick="guardarEdicao()">💾 Guardar</button>
+            <button class="success" onclick="guardarEIniciar()">▶ Guardar e Iniciar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDIÇÃO UTILIZADOR -->
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal">
+        <h3>✏ Editar Utilizador <span id="editUserId"></span></h3>
+        <input type="hidden" id="editUserIdInput">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Nome</label>
+                <input type="text" id="editUserNome">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="editUserEmail">
+            </div>
+            <div class="form-group">
+                <label>Tipo</label>
+                <select id="editUserTipo">
+                    <option value="USR">USR — Utilizador</option>
+                    <option value="ADM">ADM — Administrador</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Equipa</label>
+                <select id="editUserTeam">
+                    <option value="">— Sem equipa —</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Telemóvel</label>
+                <input type="text" id="editUserTelemovel">
+            </div>
+            <div class="form-group">
+                <label>Data de Nascimento</label>
+                <input type="date" id="editUserDataNasc">
+            </div>
+        </div>
+        <div id="editUserMsg"></div>
+        <div class="modal-footer">
+            <button onclick="fecharModal('editUserModal')" style="background:#555;color:#eee">Cancelar</button>
+            <button class="warning" onclick="guardarUtilizador()">💾 Guardar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const BASE  = () => `http://${document.getElementById('inHost').value}/maze_app_php`;
+    const EMAIL = () => document.getElementById('inEmail').value;
+    const DB    = () => document.getElementById('inDatabase').value;
+    const CREDS = () => `database=${encodeURIComponent(DB())}&email=${encodeURIComponent(EMAIL())}`;
+
+    let currentUser = null;
+    let teamsList   = [];
+
+    // ── Login / Logout ─────────────────────────────────────────────────────
+    async function login() {
+        document.getElementById('loginMsg').innerHTML = '';
+        const email    = document.getElementById('inEmail').value;
+        const password = document.getElementById('inPassword').value;
+        const database = document.getElementById('inDatabase').value;
+
+        if (!email || !password || !database) {
+            document.getElementById('loginMsg').innerHTML =
+                `<div class="msg err">Preencha todos os campos.</div>`;
+            return;
+        }
+
+        try {
+            const res  = await fetch(`${BASE()}/login.php?username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}&database=${encodeURIComponent(database)}`);
+            const json = await res.json();
+
+            if (json.success) {
+                currentUser = json;
+                document.getElementById('loginMsg').innerHTML =
+                    `<div class="msg ok">✓ Bem-vindo, <strong>${json.Nome}</strong>
+                     <span class="user-badge">${json.Tipo === 'ADM' ? '👑 Administrador' : '👤 Utilizador'}</span></div>`;
+                document.getElementById('btnLogout').style.display = 'inline-block';
+                mostrarSeccoes();
+                loadAll();
+            } else {
+                currentUser = null;
+                document.getElementById('loginMsg').innerHTML =
+                    `<div class="msg err">✗ ${json.message}</div>`;
+            }
+        } catch (e) {
+            document.getElementById('loginMsg').innerHTML =
+                `<div class="msg err">Erro de ligação: ${e.message}</div>`;
+        }
+    }
+
+    function logout() {
+        currentUser = null;
+        teamsList   = [];
+        document.getElementById('loginMsg').innerHTML =
+            `<div class="msg ok">Sessão terminada.</div>`;
+        document.getElementById('inPassword').value        = '';
+        document.getElementById('btnLogout').style.display = 'none';
+        esconderSeccoes();
+    }
+
+    function mostrarSeccoes() {
+        ['sectionHealth','sectionSim','sectionHistory','sectionTeam','sectionUsers']
+            .forEach(id => document.getElementById(id).classList.remove('section-hidden'));
+    }
+
+    function esconderSeccoes() {
+        ['sectionHealth','sectionSim','sectionHistory','sectionTeam','sectionUsers']
+            .forEach(id => document.getElementById(id).classList.add('section-hidden'));
+        document.getElementById('healthGrid').innerHTML = '';
+        document.getElementById('simTable').innerHTML   = '';
+        document.getElementById('teamTable').innerHTML  = '';
+        document.getElementById('userTable').innerHTML  = '';
+    }
+
+    // ── Carregar tudo ──────────────────────────────────────────────────────
+    function loadAll() {
+        if (!currentUser) return;
+        loadHealth();
+        loadSims();
+        loadTeams();
+        loadUsers();
+    }
+
+    // ── Health ─────────────────────────────────────────────────────────────
+    async function loadHealth() {
+        try {
+            const res  = await fetch(`${BASE()}/healthcheck.php?${CREDS()}`);
+            const json = await res.json();
+            if (!json.success) {
+                document.getElementById('healthGrid').innerHTML =
+                    `<p style="color:#ef5350">${json.message}</p>`;
+                return;
+            }
+            const grid = json.data.services.map(s => {
+                const badge = s.computed_status === 'online'  ? 'online'  :
+                              s.computed_status === 'offline' ? 'offline' : 'unknown';
+                const label = s.computed_status === 'online'  ? '✓ online'  :
+                              s.computed_status === 'offline' ? '✗ offline' : '? desconhecido';
+                return `<div class="service">
+                    <div class="name">${s.ServiceName}</div>
+                    <div class="location">${s.PCLocation} · ${s.seconds_ago != null ? s.seconds_ago + 's atrás' : '—'}</div>
+                    <span class="badge ${badge}">${label}</span>
+                </div>`;
+            }).join('');
+            document.getElementById('healthGrid').innerHTML =
+                grid || '<p style="color:#aaa;font-size:13px">Nenhum serviço registado.</p>';
+            const sim = json.data.active_simulation;
+            document.getElementById('activeSim').innerHTML = sim
+                ? `<div class="active-sim" style="margin-top:10px">🟢 Simulação activa: <strong>#${sim.IDSimulacao}</strong> — Player ${sim.PlayerNumber} — Iniciada: ${sim.DataHoraInicio}</div>`
+                : `<div style="margin-top:10px;font-size:13px;color:#aaa">Nenhuma simulação activa.</div>`;
+        } catch (e) {
+            document.getElementById('healthGrid').innerHTML =
+                `<p style="color:#ef5350">Erro de ligação: ${e.message}</p>`;
+        }
+    }
+
+    // ── Simulações ─────────────────────────────────────────────────────────
+    async function loadSims() {
+        try {
+            const res  = await fetch(`${BASE()}/simulacao.php?${CREDS()}&action=list`);
+            const json = await res.json();
+            if (!json.success) return;
+            const statusLabel = { 0:'Criada', 1:'Em curso', 2:'Terminada', 3:'Limite atingido', 4:'Erro/Abandonada' };
+            const statusClass = { 0:'status-0', 1:'status-1', 2:'', 3:'status-3', 4:'status-3' };
+            const rows = json.data.map(s => `
+                <tr>
+                    <td>#${s.IDSimulacao}</td>
+                    <td>${s.Descricao || '—'}</td>
+                    <td class="${statusClass[s.Status] || ''}">${statusLabel[s.Status] || s.Status}</td>
+                    <td>${s.DataHoraInicio || '—'}</td>
+                    <td>${s.DataHoraFim   || '—'}</td>
+                    <td>${s.Score != null  ? s.Score : '—'}</td>
+                    <td style="display:flex;gap:6px">
+                        ${s.Status === 0 ? `
+                            <button onclick="abrirModalSim(${s.IDSimulacao}, '${(s.Descricao||'').replace(/'/g,"\\'")}', ${s.ParamAcLimit||'null'}, ${s.ErrorOutlierTemp||'null'}, ${s.ErrorOutlierSound||'null'}, ${s.TimeMarsamiLive||'null'})"
+                                style="font-size:11px;padding:4px 10px;background:#ffa726;color:#1a1a2e">✏ Editar</button>
+                            <button class="success" onclick="iniciar(${s.IDSimulacao})"
+                                style="font-size:11px;padding:4px 10px">▶ Iniciar</button>
+                        ` : '—'}
+                    </td>
+                </tr>`).join('');
+            document.getElementById('simTable').innerHTML =
+                rows || '<tr><td colspan="7" style="color:#aaa">Nenhuma simulação encontrada.</td></tr>';
+        } catch (e) {
+            document.getElementById('simTable').innerHTML =
+                `<tr><td colspan="7" style="color:#ef5350">Erro: ${e.message}</td></tr>`;
+        }
+    }
+
+    async function verificarAgentes() {
+        try {
+            const res  = await fetch(`${BASE()}/healthcheck.php?${CREDS()}`);
+            const json = await res.json();
+            if (!json.success) return false;
+            const offline = json.data.services.filter(s =>
+                (s.ServiceName === 'pc1_agent' || s.ServiceName === 'pc2_agent')
+                && s.computed_status !== 'online'
+            );
+            if (offline.length > 0) {
+                document.getElementById('createMsg').innerHTML =
+                    `<div class="msg err">⚠ Agentes offline: ${offline.map(a => a.ServiceName).join(', ')}.</div>`;
+                return false;
+            }
+            return true;
+        } catch (e) { return false; }
+    }
+
+    async function criarSimulacao() {
+        document.getElementById('createMsg').innerHTML = '';
+        const descricao = document.getElementById('inDescricao').value;
+        try {
+            const r = await fetch(`${BASE()}/simulacao.php?${CREDS()}&action=create&descricao=${encodeURIComponent(descricao)}`);
+            const j = await r.json();
+            document.getElementById('createMsg').innerHTML = j.success
+                ? `<div class="msg ok">✓ Simulação #${j.data.IDSimulacao} criada.</div>`
+                : `<div class="msg err">${j.message}</div>`;
+            if (j.success) loadSims();
+        } catch (e) {
+            document.getElementById('createMsg').innerHTML = `<div class="msg err">Erro: ${e.message}</div>`;
+        }
+    }
+
+    async function criarEIniciar() {
+        document.getElementById('createMsg').innerHTML = '';
+        if (!await verificarAgentes()) return;
+        const descricao = document.getElementById('inDescricao').value;
+        try {
+            const r1 = await fetch(`${BASE()}/simulacao.php?${CREDS()}&action=create&descricao=${encodeURIComponent(descricao)}`);
+            const j1 = await r1.json();
+            if (!j1.success) { document.getElementById('createMsg').innerHTML = `<div class="msg err">${j1.message}</div>`; return; }
+            const id = j1.data.IDSimulacao;
+            const r2 = await fetch(`${BASE()}/simulacao.php?${CREDS()}&action=start&id_simulacao=${id}`);
+            const j2 = await r2.json();
+            document.getElementById('createMsg').innerHTML = j2.success
+                ? `<div class="msg ok">✓ Simulação #${id} criada e iniciada.</div>`
+                : `<div class="msg err">${j2.message}</div>`;
+            if (j2.success) setTimeout(loadAll, 2000);
+        } catch (e) {
+            document.getElementById('createMsg').innerHTML = `<div class="msg err">Erro: ${e.message}</div>`;
+        }
+    }
+
+    async function iniciar(id) {
+        if (!await verificarAgentes()) { alert('Agentes offline.'); return; }
+        try {
+            const r = await fetch(`${BASE()}/simulacao.php?${CREDS()}&action=start&id_simulacao=${id}`);
+            const j = await r.json();
+            j.success ? (alert(`Simulação #${id} iniciada!`), loadAll()) : alert(`Erro: ${j.message}`);
+        } catch (e) { alert(`Erro: ${e.message}`); }
+    }
+
+    // ── Equipas ────────────────────────────────────────────────────────────
+    async function loadTeams() {
+        try {
+            const res  = await fetch(`${BASE()}/equipa.php?${CREDS()}&action=list`);
+            const json = await res.json();
+            if (!json.success) return;
+            teamsList = json.data;
+            // Preencher selects de equipa
+            const options = `<option value="">— Sem equipa —</option>` +
+                teamsList.map(t => `<option value="${t.IDTeam}">${t.Name} (Player ${t.PlayerNumber})</option>`).join('');
+            document.getElementById('userTeam').innerHTML     = options;
+            document.getElementById('editUserTeam').innerHTML = options;
+            // Tabela
+            const rows = teamsList.map(t => `
+                <tr>
+                    <td>#${t.IDTeam}</td>
+                    <td>${t.Name}</td>
+                    <td>${t.PlayerNumber}</td>
+                </tr>`).join('');
+            document.getElementById('teamTable').innerHTML =
+                rows || '<tr><td colspan="3" style="color:#aaa">Nenhuma equipa.</td></tr>';
+        } catch (e) {
+            document.getElementById('teamTable').innerHTML =
+                `<tr><td colspan="3" style="color:#ef5350">Erro: ${e.message}</td></tr>`;
+        }
+    }
+
+    async function criarEquipa() {
+        document.getElementById('teamMsg').innerHTML = '';
+        const nome     = document.getElementById('teamNome').value;
+        const player   = document.getElementById('teamPlayer').value;
+        const password = document.getElementById('teamPassword').value;
+        try {
+            const r = await fetch(`${BASE()}/equipa.php?${CREDS()}&action=create&nome=${encodeURIComponent(nome)}&player_number=${player}&password=${encodeURIComponent(password)}`);
+            const j = await r.json();
+            document.getElementById('teamMsg').innerHTML = j.success
+                ? `<div class="msg ok">✓ ${j.message}</div>`
+                : `<div class="msg err">${j.message}</div>`;
+            if (j.success) {
+                document.getElementById('teamNome').value     = '';
+                document.getElementById('teamPlayer').value  = '';
+                document.getElementById('teamPassword').value= '';
+                loadTeams();
+            }
+        } catch (e) {
+            document.getElementById('teamMsg').innerHTML = `<div class="msg err">Erro: ${e.message}</div>`;
+        }
+    }
+
+    // ── Utilizadores ───────────────────────────────────────────────────────
+    async function loadUsers() {
+        try {
+            const res  = await fetch(`${BASE()}/utilizador.php?${CREDS()}&action=list`);
+            const json = await res.json();
+            if (!json.success) return;
+            const rows = json.data.map(u => `
+                <tr>
+                    <td>#${u.IDUtilizador}</td>
+                    <td>${u.Nome}</td>
+                    <td>${u.Email}</td>
+                    <td>${u.Tipo}</td>
+                    <td>${u.NomeEquipa || '—'}</td>
+                    <td style="display:flex;gap:6px">
+                        <button onclick="abrirModalUser(${u.IDUtilizador}, '${u.Nome.replace(/'/g,"\\'")}', '${u.Email}', '${u.Tipo}', ${u.IDTeam||'null'}, '${u.Telemovel||''}', '${u.DataNascimento||''}')"
+                            style="font-size:11px;padding:4px 10px;background:#ffa726;color:#1a1a2e">✏ Editar</button>
+                        <button class="danger" onclick="apagarUtilizador(${u.IDUtilizador}, '${u.Nome.replace(/'/g,"\\'")}')"
+                            style="font-size:11px;padding:4px 10px">🗑 Apagar</button>
+                    </td>
+                </tr>`).join('');
+            document.getElementById('userTable').innerHTML =
+                rows || '<tr><td colspan="6" style="color:#aaa">Nenhum utilizador.</td></tr>';
+        } catch (e) {
+            document.getElementById('userTable').innerHTML =
+                `<tr><td colspan="6" style="color:#ef5350">Erro: ${e.message}</td></tr>`;
+        }
+    }
+
+    async function criarUtilizador() {
+        document.getElementById('userMsg').innerHTML = '';
+        const params = new URLSearchParams({
+            ...Object.fromEntries(new URLSearchParams(CREDS())),
+            action:           'create',
+            nome:             document.getElementById('userNome').value,
+            email:            document.getElementById('userEmail').value,
+            password:         document.getElementById('userPassword').value,
+            tipo:             document.getElementById('userTipo').value,
+            id_team:          document.getElementById('userTeam').value,
+            telemovel:        document.getElementById('userTelemovel').value,
+            data_nascimento:  document.getElementById('userDataNasc').value,
+        });
+        try {
+            const r = await fetch(`${BASE()}/utilizador.php?${params}`);
+            const j = await r.json();
+            document.getElementById('userMsg').innerHTML = j.success
+                ? `<div class="msg ok">✓ ${j.message}</div>`
+                : `<div class="msg err">${j.message}</div>`;
+            if (j.success) {
+                ['userNome','userEmail','userPassword','userTelemovel','userDataNasc'].forEach(id => document.getElementById(id).value = '');
+                loadUsers();
+            }
+        } catch (e) {
+            document.getElementById('userMsg').innerHTML = `<div class="msg err">Erro: ${e.message}</div>`;
+        }
+    }
+
+    async function apagarUtilizador(id, nome) {
+        if (!confirm(`Apagar "${nome}"? Esta acção não pode ser revertida.`)) return;
+        try {
+            const r = await fetch(`${BASE()}/utilizador.php?${CREDS()}&action=delete&id_utilizador=${id}`);
+            const j = await r.json();
+            j.success ? loadUsers() : alert(`Erro: ${j.message}`);
+        } catch (e) { alert(`Erro: ${e.message}`); }
+    }
+
+    function abrirModalUser(id, nome, email, tipo, idTeam, telemovel, dataNasc) {
+        document.getElementById('editUserIdInput').value    = id;
+        document.getElementById('editUserId').textContent   = `#${id}`;
+        document.getElementById('editUserNome').value       = nome;
+        document.getElementById('editUserEmail').value      = email;
+        document.getElementById('editUserTipo').value       = tipo;
+        document.getElementById('editUserTelemovel').value  = telemovel || '';
+        document.getElementById('editUserDataNasc').value   = dataNasc  || '';
+        if (idTeam) document.getElementById('editUserTeam').value = idTeam;
+        document.getElementById('editUserMsg').innerHTML    = '';
+        document.getElementById('editUserModal').classList.add('active');
+    }
+
+    async function guardarUtilizador() {
+        const params = new URLSearchParams({
+            ...Object.fromEntries(new URLSearchParams(CREDS())),
+            action:          'edit',
+            id_utilizador:   document.getElementById('editUserIdInput').value,
+            nome:            document.getElementById('editUserNome').value,
+            email:           document.getElementById('editUserEmail').value,
+            tipo:            document.getElementById('editUserTipo').value,
+            id_team:         document.getElementById('editUserTeam').value,
+            telemovel:       document.getElementById('editUserTelemovel').value,
+            data_nascimento: document.getElementById('editUserDataNasc').value,
+        });
+        try {
+            const r = await fetch(`${BASE()}/utilizador.php?${params}`);
+            const j = await r.json();
+            document.getElementById('editUserMsg').innerHTML = j.success
+                ? `<div class="msg ok">✓ ${j.message}</div>`
+                : `<div class="msg err">${j.message}</div>`;
+            if (j.success) { setTimeout(() => fecharModal('editUserModal'), 800); loadUsers(); }
+        } catch (e) {
+            document.getElementById('editUserMsg').innerHTML = `<div class="msg err">Erro: ${e.message}</div>`;
+        }
+    }
+
+    // ── Modal simulação ────────────────────────────────────────────────────
+    function abrirModalSim(id, descricao, paramAc, errTemp, errSound, timeLive) {
+        document.getElementById('editId').value                = id;
+        document.getElementById('editSimId').textContent       = `#${id}`;
+        document.getElementById('editDescricao').value         = descricao || '';
+        document.getElementById('editParamAcLimit').value      = paramAc   || '';
+        document.getElementById('editErrorOutlierTemp').value  = errTemp   || '';
+        document.getElementById('editErrorOutlierSound').value = errSound  || '';
+        document.getElementById('editTimeMarsamiLive').value   = timeLive  || '';
+        document.getElementById('editMsg').innerHTML           = '';
+        document.getElementById('editModal').classList.add('active');
+    }
+
+    async function guardarEdicao() {
+        const params = new URLSearchParams({
+            ...Object.fromEntries(new URLSearchParams(CREDS())),
+            action:       'edit',
+            id_simulacao: document.getElementById('editId').value,
+            descricao:    document.getElementById('editDescricao').value,
+            ...(document.getElementById('editParamAcLimit').value      ? { param_ac_limit:      document.getElementById('editParamAcLimit').value }      : {}),
+            ...(document.getElementById('editErrorOutlierTemp').value  ? { error_outlier_temp:  document.getElementById('editErrorOutlierTemp').value }  : {}),
+            ...(document.getElementById('editErrorOutlierSound').value ? { error_outlier_sound: document.getElementById('editErrorOutlierSound').value } : {}),
+            ...(document.getElementById('editTimeMarsamiLive').value   ? { time_marsami_live:   document.getElementById('editTimeMarsamiLive').value }   : {}),
+        });
+        try {
+            const r = await fetch(`${BASE()}/simulacao.php?${params}`);
+            const j = await r.json();
+            document.getElementById('editMsg').innerHTML = j.success
+                ? `<div class="msg ok">✓ Guardado.</div>`
+                : `<div class="msg err">${j.message}</div>`;
+            if (j.success) loadSims();
+        } catch (e) {
+            document.getElementById('editMsg').innerHTML = `<div class="msg err">Erro: ${e.message}</div>`;
+        }
+    }
+
+    async function guardarEIniciar() {
+        await guardarEdicao();
+        const id = document.getElementById('editId').value;
+        if (!await verificarAgentes()) { alert('Agentes offline.'); return; }
+        try {
+            const r = await fetch(`${BASE()}/simulacao.php?${CREDS()}&action=start&id_simulacao=${id}`);
+            const j = await r.json();
+            if (j.success) {
+                fecharModal('editModal');
+                document.getElementById('createMsg').innerHTML = `<div class="msg ok">✓ Simulação #${id} iniciada.</div>`;
+                setTimeout(loadAll, 2000);
+            } else {
+                document.getElementById('editMsg').innerHTML = `<div class="msg err">${j.message}</div>`;
+            }
+        } catch (e) {
+            document.getElementById('editMsg').innerHTML = `<div class="msg err">Erro: ${e.message}</div>`;
+        }
+    }
+
+    // ── Utilitários ────────────────────────────────────────────────────────
+    function fecharModal(id) {
+        document.getElementById(id).classList.remove('active');
+    }
+
+    ['editModal','editUserModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function(e) {
+            if (e.target === this) fecharModal(id);
+        });
+    });
+
+    document.getElementById('inPassword').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') login();
+    });
+
+    setInterval(() => { if (currentUser) loadAll(); }, 5000);
+</script>
+</body>
+</html>
