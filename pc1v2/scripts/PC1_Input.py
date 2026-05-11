@@ -54,6 +54,8 @@ dedup_sound       = deque(maxlen=200)
 SIGNAL_CHECK_INTERVAL    = 0.5 # intervalo em segundos entre verificações de sinais
 STALE_THRESHOLD          = PC1_Agent.WATCHDOG_INTERVAL * 3  # 30s = 3 ciclos de watchdog
 
+_simulation_active = threading.Event()
+_simulation_active.set()  # activa por defeito quando config carregada
 
 # ─── Leitura de ficheiros locais ──────────────────────────────────────────────
 
@@ -70,6 +72,7 @@ def load_simulation_config():
             simulation_id     = cfg["IDSimulacao"]
             valid_corridors   = {tuple(c) for c in cfg.get("Corridors", [])}
             closed_corridors  = set()
+            _simulation_active.set()
         log.info(f"PC1_Input — config carregada: simulação {simulation_id}, "
                  f"{len(valid_corridors)} corredores válidos")
         return True
@@ -144,7 +147,8 @@ def signal_monitor():
             check_new_simulation_signal()
             ended, status = check_simulation_ended_signal()
             if ended:
-                log.info(f"PC1_Input — simulação terminou (Status={status})")
+                _simulation_active.clear()
+                log.info(f"PC1_Input — simulação terminou: mensagens ignoradas até nova simulação")
         except Exception as e:
             log.error(f"Erro no signal_monitor: {e}")
         time.sleep(SIGNAL_CHECK_INTERVAL)
@@ -384,6 +388,8 @@ def on_message_mov(client, userdata, message):
             cc  = closed_corridors
         if cfg is None:
             return
+        if not _simulation_active.is_set():
+            return
         if is_duplicate(dedup_movements, "mov", payload):
             return
         if is_stale(payload, "movements"):
@@ -414,6 +420,8 @@ def on_message_temp(client, userdata, message):
             sid = simulation_id
         if cfg is None:
             return
+        if not _simulation_active.is_set():
+            return
         if is_duplicate(dedup_temperature, "tmp", payload):
             return
         if is_stale(payload, "temperature"):
@@ -442,6 +450,8 @@ def on_message_snd(client, userdata, message):
             cfg = simulation_config
             sid = simulation_id
         if cfg is None:
+            return
+        if not _simulation_active.is_set():
             return
         if is_duplicate(dedup_sound, "snd", payload):
             return

@@ -80,6 +80,14 @@
     <div id="activeSim"></div>
 </div>
 
+<!-- LATÊNCIA DO PIPELINE -->
+<div class="card section-hidden" id="sectionLag">
+    <h2>Latência do Pipeline
+        <span id="lagUpdate" style="font-size:11px;color:#aaa;margin-left:10px"></span>
+    </h2>
+    <div id="lagContent"></div>
+</div>
+
 <!-- NOVA SIMULAÇÃO -->
 <div class="card section-hidden" id="sectionSim">
     <h2>Nova Simulação</h2>
@@ -327,12 +335,14 @@
     }
 
     function mostrarSeccoes() {
-        ['sectionHealth','sectionSim','sectionHistory','sectionTeam','sectionUsers']
+        ['sectionHealth','sectionSim','sectionHistory',
+            'sectionTeam','sectionUsers','sectionLag']
             .forEach(id => document.getElementById(id).classList.remove('section-hidden'));
     }
 
     function esconderSeccoes() {
-        ['sectionHealth','sectionSim','sectionHistory','sectionTeam','sectionUsers']
+        ['sectionHealth','sectionSim','sectionHistory',
+            'sectionTeam','sectionUsers','sectionLag']
             .forEach(id => document.getElementById(id).classList.add('section-hidden'));
         document.getElementById('healthGrid').innerHTML = '';
         document.getElementById('simTable').innerHTML   = '';
@@ -347,6 +357,7 @@
         loadSims();
         loadTeams();
         loadUsers();
+        loadPipelineLag();
     }
 
     // ── Health ─────────────────────────────────────────────────────────────
@@ -697,6 +708,66 @@
     document.getElementById('inPassword').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') login();
     });
+
+    async function loadPipelineLag() {
+        // Encontra simulação activa na tabela
+        const rows = document.querySelectorAll('#simTable tr');
+        let activeId = null;
+        for (const row of rows) {
+            if (row.querySelector('.status-1')) {
+                activeId = row.querySelector('td')?.textContent?.replace('#','').trim();
+                break;
+            }
+        }
+        if (!activeId) {
+            document.getElementById('lagContent').innerHTML =
+                '<p style="color:#aaa;font-size:13px">Sem simulação activa.</p>';
+            return;
+        }
+
+        try {
+            const res = await fetch(
+                `${BASE()}/get_pipeline_lag.php?database=${encodeURIComponent(DB())}&id_simulacao=${activeId}`
+            );
+            const j = await res.json();
+            if (!j.success) return;
+
+            document.getElementById('lagUpdate').textContent =
+                `actualizado: ${new Date().toLocaleTimeString()}`;
+
+            const colIcon = { movements: '🚶', temperature: '🌡️', sound: '🔊' };
+
+            let html = `<table>
+            <thead>
+                <tr>
+                    <th>Coleção</th>
+                    <th>Lag Mínimo</th>
+                    <th>Lag Médio</th>
+                    <th>Lag Máximo</th>
+                    <th>Total registos</th>
+                </tr>
+            </thead><tbody>`;
+
+            for (const row of j.data) {
+                const fmt = v => v != null ? Math.round(v) + ' ms' : '—';
+                const color = row.lag_medio_ms > 1000 ? '#ef5350' :
+                    row.lag_medio_ms > 500  ? '#ffa726' : '#66bb6a';
+                html += `<tr>
+                <td>${colIcon[row.colecao] || ''} ${row.colecao}</td>
+                <td>${fmt(row.lag_min_ms)}</td>
+                <td style="color:${color};font-weight:bold">${fmt(row.lag_medio_ms)}</td>
+                <td>${fmt(row.lag_max_ms)}</td>
+                <td>${row.total}</td>
+            </tr>`;
+            }
+            html += '</tbody></table>';
+            document.getElementById('lagContent').innerHTML = html;
+
+        } catch(e) {
+            document.getElementById('lagContent').innerHTML =
+                `<p style="color:#ef5350">Erro: ${e.message}</p>`;
+        }
+    }
 
     setInterval(() => { if (currentUser) loadAll(); }, 5000);
 </script>

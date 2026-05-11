@@ -1,6 +1,4 @@
 import os
-
-import os
 import pymysql
 import pymysql.cursors
 from dotenv import load_dotenv
@@ -8,15 +6,25 @@ from pymongo import MongoClient
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
+# ─── MongoDB Singleton ────────────────────────────────────────────────────────
+_mongo_client = None
+
 def get_mongo_client():
-    uri = os.getenv("MONGO_URI")
-    client = MongoClient(uri)
-    return client
+    global _mongo_client
+    if _mongo_client is None:
+        _mongo_client = MongoClient(
+            os.getenv("MONGO_URI"),
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000,
+        )
+    return _mongo_client
 
 def get_mongo_db():
-    client = get_mongo_client()
-    db_name = os.getenv("MONGO_DB")
-    return client[db_name]
+    return get_mongo_client()[os.getenv("MONGO_DB")]
+
+# ─── MySQL ────────────────────────────────────────────────────────────────────
+# Usado apenas pelo PC1_Agent para leitura de configuração — não usa pool
+# porque são chamadas pontuais no arranque, não em loop contínuo
 
 def get_mysql_connection():
     return pymysql.connect(
@@ -28,14 +36,14 @@ def get_mysql_connection():
         charset="utf8mb4",
         connect_timeout=10,
         autocommit=True,
-        cursorclass=pymysql.cursors.DictCursor  # equivalente a dictionary=True
+        cursorclass=pymysql.cursors.DictCursor
     )
 
 def get_simulation_config(simulation_id):
     conn = get_mysql_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT 
+        SELECT
             sc.Broker, sc.PortBroker,
             sc.TopicMovement, sc.TopicSound, sc.TopicTemperature, sc.TopicAction,
             sc.TimeMarsamiLive, sc.ParamAcLimit,

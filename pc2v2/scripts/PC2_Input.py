@@ -9,6 +9,7 @@ import paho.mqtt.client as mqtt
 from config.db import get_mysql_connection
 from collections import deque
 
+
 load_dotenv()
 
 logging.basicConfig(
@@ -340,6 +341,11 @@ def make_on_message(collection):
             if payload.get("simulation_id") != simulation_id:
                 return
 
+            # Verificação no MySQL — garante que a simulação ainda está activa
+            if not _verify_simulation_active(payload.get("simulation_id")):
+                log.warning(f"PC2_Input [{collection}] — simulação {payload.get('simulation_id')} já não está activa")
+                return
+
             # Actualiza timestamp da última mensagem — protegido por lock
             with _time_lock:
                 last_message_time = time.time()
@@ -364,6 +370,26 @@ def make_on_message(collection):
             log.error(f"PC2_Input [{collection}] — erro on_message: {e}")
     return on_message
 
+def _verify_simulation_active(sid):
+    """
+    Verifica no MySQL se o simulation_id do payload corresponde
+    à simulação actualmente activa (Status=1).
+    Evita inserir dados de simulações anteriores retidas no broker.
+    """
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT IDSimulacao FROM Simulacao WHERE IDSimulacao = %s AND Status = 1",
+            (sid,)
+        )
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return result is not None
+    except Exception as e:
+        log.error(f"Erro ao verificar simulação activa: {e}")
+        return True  # em caso de erro assume válido para não perder dados
 
 def create_mqtt_client(collection):
     """
