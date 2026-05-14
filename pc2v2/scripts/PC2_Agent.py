@@ -10,6 +10,7 @@ from config.db import get_mysql_connection
 import paho.mqtt.client as mqtt
 import psutil
 import uuid
+import pymysql.cursors as _pycursors
 
 PIDS_FILE = os.path.join(os.path.dirname(__file__), "pids_pc2.json")
 
@@ -56,6 +57,91 @@ simulation_ended_notified = set()  # IDSimulacao já notificados
 
 import psutil
 
+def copy_cloud_config():
+    """
+    Copia configuração actual do labirinto da cloud BD para o MySQL local.
+    Chamada no início de cada simulação — garante dados sempre actualizados.
+    Cloud BD: 194.210.86.10 · maze · aluno/aluno
+    """
+    log.info("PC2_Agent — a copiar config da cloud BD...")
+    try:
+        # Ligação à cloud BD
+        cloud = pymysql.connect(
+            host="194.210.86.10",
+            user="aluno",
+            password="aluno",
+            database="maze",
+            connect_timeout=10,
+            cursorclass=_pycursors.DictCursor
+        )
+        cloud_cursor = cloud.cursor()
+
+        # Lê setupmaze
+        cloud_cursor.execute("SELECT * FROM setupmaze LIMIT 1")
+        maze = cloud_cursor.fetchone()
+
+        # Lê corredores activos
+        cloud_cursor.execute("SELECT Rooma, Roomb FROM corridor WHERE active = 1")
+        corridors = cloud_cursor.fetchall()
+
+        cloud_cursor.close()
+        cloud.close()
+
+        if not maze:
+            log.error("PC2_Agent — cloud BD: setupmaze vazio")
+            return False
+
+        # Actualiza MySQL local
+        local = get_mysql_connection()
+        local_cursor = local.cursor()
+
+        # Actualiza Maze
+        local_cursor.execute("""
+            UPDATE Maze SET
+                NumberRooms        = %s,
+                NumberMarsamis     = %s,
+                NormalNoise        = %s,
+                NoiseVarToleration = %s,
+                NormalTemperature  = %s,
+                TempHighToleration = %s,
+                TempLowToleration  = %s,
+                CopiedAt           = UTC_TIMESTAMP()
+            WHERE IDMaze = 1
+        """, (
+            maze["numberrooms"],
+            maze["numbermarsamis"],
+            maze["normalnoise"],
+            maze["noisevartoleration"],
+            maze["normaltemperature"],
+            maze["temperaturevarhightoleration"],
+            maze["temperaturevarlowtoleration"],
+        ))
+
+        # Limpa corredores antigos e insere novos
+        local_cursor.execute("""
+            DELETE FROM Corridor WHERE IDMaze = (
+                SELECT IDMaze FROM SimulationConfig LIMIT 1
+            )
+        """)
+        for c in corridors:
+            local_cursor.execute("""
+                INSERT INTO Corridor (IDMaze, RoomA, RoomB)
+                SELECT IDMaze, %s, %s FROM SimulationConfig LIMIT 1
+            """, (c["Rooma"], c["Roomb"]))
+
+        local.commit()
+        local_cursor.close()
+        local.close()
+
+        log.info(f"PC2_Agent — cloud BD copiada: "
+                 f"{maze['numberrooms']} salas, "
+                 f"{maze['numbermarsamis']} marsamis, "
+                 f"{len(corridors)} corredores")
+        return True
+
+    except Exception as e:
+        log.error(f"PC2_Agent — erro ao copiar cloud BD: {e}")
+        return False
 
 def save_pids():
     try:
@@ -497,6 +583,10 @@ def process_start_command(command):
         time.sleep(3)
     else:
         log.info("PC2_Agent — PC2_Output já está vivo")
+
+    # 2.5 Copiar config da cloud BD — garante dados actualizados
+    if not copy_cloud_config():
+        log.warning("PC2_Agent — cloud BD indisponível: a usar config local existente")
 
     # 3. Carregar config completa e notificar PC1_Agent via MQTT
     config = load_simulation_config_for_start(id_simulacao)
